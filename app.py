@@ -652,29 +652,21 @@ def api_debug_raw():
 # PAGE ROUTES
 # ══════════════════════════════════════════════════════════════════════
 
-@app.route("/", methods=["GET"])
+@app.route("/")
 def index():
     return render_template_string(ADMIN_TEMPLATE)
 
-@app.route("/recorder", methods=["GET"])
+@app.route("/recorder")
 def recorder_page():
     return redirect("/simple.html")
 
-@app.route("/simple.html", methods=["GET"])
+@app.route("/simple.html")
 def simple_page():
-    try:
-        with open("simple.html", "r", encoding="utf-8") as f:
-            return f.read()
-    except Exception as e:
-        return f"Error loading simple.html: {str(e)}", 404
+    return send_from_directory("static", "simple.html")
 
-@app.route("/dashboard.html", methods=["GET"])
+@app.route("/dashboard.html")
 def dashboard_page():
-    try:
-        with open("dashboard.html", "r", encoding="utf-8") as f:
-            return f.read()
-    except Exception as e:
-        return f"Error loading dashboard.html: {str(e)}", 404
+    return send_from_directory("static", "dashboard.html")
 
 
 # ══════════════════════════════════════════════════════════════════════
