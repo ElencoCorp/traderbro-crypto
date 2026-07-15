@@ -32,6 +32,32 @@ _lock = Lock()
 
 app = Flask(__name__)
 app.secret_key = "CryptoNexus@2026#Secure$Flask"
+from functools import wraps
+
+@app.before_request
+def require_login():
+    if request.path.startswith("/static/"):
+        return
+
+    if request.path in PUBLIC_ROUTES:
+        return
+
+    if session.get("logged_in"):
+        return
+
+    return redirect("/login")
+
+# ===========================
+# LOGIN CONFIGURATION
+# ===========================
+APP_PASSWORD = "TraderBro@2026"   # Change this to your own password
+
+PUBLIC_ROUTES = {
+    "/login",
+    "/logout",
+    "/favicon.ico",
+    "/api/heartbeat"
+}
 scheduler = BackgroundScheduler()
 scheduler.start()
 
@@ -504,9 +530,104 @@ def load_existing_records():
 load_existing_records()
 
 
+LOGIN_HTML = """
+<!DOCTYPE html>
+<html>
+<head>
+<title>TraderBro Login</title>
+<style>
+body{
+    margin:0;
+    background:#0f172a;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    height:100vh;
+    font-family:Arial;
+}
+.box{
+    background:#1e293b;
+    padding:40px;
+    border-radius:15px;
+    width:320px;
+    text-align:center;
+}
+h2{
+    color:white;
+}
+input{
+    width:100%;
+    padding:12px;
+    margin:20px 0;
+    border-radius:8px;
+    border:none;
+    font-size:16px;
+}
+button{
+    width:100%;
+    padding:12px;
+    background:#2563eb;
+    color:white;
+    border:none;
+    border-radius:8px;
+    cursor:pointer;
+}
+.error{
+    color:#ff6666;
+}
+</style>
+</head>
+
+<body>
+
+<div class="box">
+<h2>TraderBro Crypto</h2>
+
+{% if error %}
+<p class="error">{{error}}</p>
+{% endif %}
+
+<form method="POST">
+<input
+type="password"
+name="password"
+placeholder="Enter Password"
+required>
+
+<button type="submit">
+Login
+</button>
+</form>
+
+</div>
+
+</body>
+</html>
+"""
 # ══════════════════════════════════════════════════════════════════════
 # API ROUTES
 # ══════════════════════════════════════════════════════════════════════
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+
+    if request.method == "POST":
+
+        if request.form.get("password") == APP_PASSWORD:
+            session["logged_in"] = True
+            return redirect("/")
+
+        return render_template_string(
+            LOGIN_HTML,
+            error="Invalid Password"
+        )
+
+    return render_template_string(LOGIN_HTML)
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect("/login")
 
 @app.route("/api/heartbeat", methods=["POST"])
 def heartbeat():
