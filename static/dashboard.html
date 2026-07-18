@@ -365,7 +365,12 @@ async function preciseLoop() {
 
 function downloadExcel() {
   if (!records.length) { alert("No data."); return; }
-  const now = new Date(), ds = now.toISOString().slice(0,10), dn = now.toLocaleDateString("en-IN",{weekday:"long"});
+  const now = new Date();
+  
+  // Force date and weekday to calculate using IST (Asia/Kolkata)
+  const ds = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
+  const dn = now.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", weekday: "long" });
+  
   const hdrs = ["DateTime", "Expiry", "ATM Strike", "LTP (Index)", "Running Value"];
   const fn = v => { if(v===null||v===undefined||v==="")return"";const n=parseFloat(v);return isNaN(n)?"":n; };
   
