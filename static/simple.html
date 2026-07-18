@@ -146,8 +146,16 @@
       <input type="number" id="inp-interval" value="15" min="1">
     </div>
     <button class="btn btn-blue" onclick="applyInterval()">⚡ Apply</button>
-    <button class="btn btn-teal" onclick="downloadExcel()">⬇ Excel</button>
+    
+    <!-- NEW ARCHIVE SELECTOR -->
+    <select id="archive-select" style="padding: 9px; border-radius: 10px; background: rgba(255, 255, 255, 0.04); color: white; border: 1px solid rgba(255, 255, 255, 0.08); outline: none; margin-left: 10px;">
+      <option value="">Archived Dates...</option>
+    </select>
+    <button class="btn btn-blue" onclick="downloadArchive()">🗄️ Past Archives</button>
+
+    <button class="btn btn-teal" onclick="downloadExcel()">⬇ Live Excel</button>
     <button class="btn btn-red" onclick="clearData()">🗑 Clear</button>
+    
     <div class="pill pill-amber" style="margin-left: auto;">
       <span class="dot dot-a"></span><span id="active-count">0</span> online
     </div>
@@ -344,6 +352,39 @@ async function hb() {
 
 window.addEventListener("load", async () => {
   await loadInterval();
+  await fetchData();
+  preciseLoop();
+  fetchUsers();
+  setInterval(fetchUsers, 20000);
+  hb();
+  setInterval(hb, 20000);
+});
+
+// [ADD THIS JAVASCRIPT inside the <script> tags at the bottom of simple.html]
+
+async function loadArchives() {
+  try {
+    const files = await (await fetch("/api/archives")).json();
+    const sel = document.getElementById("archive-select");
+    files.forEach(f => {
+      const opt = document.createElement("option");
+      opt.value = f;
+      opt.innerText = f.replace("CryptoNexus_Archive_", "").replace(".xlsx", "");
+      sel.appendChild(opt);
+    });
+  } catch(e) {}
+}
+
+function downloadArchive() {
+  const sel = document.getElementById("archive-select");
+  if (!sel.value) return alert("Please select a past date from the dropdown.");
+  window.open("/api/download/archive/" + sel.value, "_blank");
+}
+
+// [FIND YOUR window.addEventListener("load") block AND ADD loadArchives() TO IT:]
+window.addEventListener("load", async () => {
+  await loadInterval();
+  await loadArchives(); // <--- ADD THIS LINE
   await fetchData();
   preciseLoop();
   fetchUsers();
