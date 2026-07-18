@@ -6,7 +6,7 @@ import math
 import json
 import requests
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 from flask import Flask, render_template_string, jsonify, request, session, redirect
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -29,6 +29,15 @@ LIVE_RUNNING_RECORDS: list = []
 LAST_CHAIN_CACHE = {"data": None, "time": None}
 ACTIVE_USERS: dict = {}
 _lock = Lock()
+
+# ── Currency & Config ───────────────────────────────────────────────────
+USD_TO_INR     = 94.33
+INTERVAL_FILE  = "crypto_config.json"
+RUNNING_FILE   = "crypto_running.json"
+ACTIVE_TIMEOUT = 35
+
+# Define Indian Standard Time (IST)
+IST = timezone(timedelta(hours=5, minutes=30))
 
 app = Flask(__name__)
 app.secret_key = "CryptoNexus@2026#Secure$Flask"
@@ -154,7 +163,7 @@ def fetch_raw_chain():
             return None
 
     parsed = []
-    current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    current_time = datetime.now(IST).strftime("%Y-%m-%d %H:%M:%S")
     index_usd = 0.0
 
     for item in data:
@@ -417,7 +426,7 @@ def crypto_auto_recorder():
         if current_diff is None or (isinstance(current_diff, float) and math.isnan(current_diff)):
             current_diff = 0.0
 
-        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        now_str = datetime.now(IST).strftime("%Y-%m-%d %H:%M:%S")
 
         row = {
             "datetime":    now_str,
@@ -503,7 +512,7 @@ restart_recorder_job()
 
 def daily_cleanup():
     global LIVE_RUNNING_RECORDS
-    now = datetime.now()
+    now = datetime.now(IST)
     if not (0 <= now.hour < 2):
         return
     with _lock:
@@ -706,7 +715,7 @@ def api_chain():
         "chain":     rows,
         "atm_strike": atm_strike,
         "ltp_inr":   round(float(index_inr), 2),
-        "timestamp": datetime.now().strftime("%d-%m-%Y %H:%M:%S"),
+        "timestamp": datetime.now(IST).strftime("%d-%m-%Y %H:%M:%S"),
     })
 
 
