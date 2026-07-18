@@ -67,7 +67,7 @@ PUBLIC_ROUTES = {
     "/favicon.ico",
     "/api/heartbeat"
 }
-scheduler = BackgroundScheduler()
+scheduler = BackgroundScheduler(timezone=IST)
 scheduler.start()
 
 # ══════════════════════════════════════════════════════════════════════
@@ -463,7 +463,8 @@ def crypto_auto_recorder():
                 row["running"]   = round(float(prev.get("running", 0)) + diff_change, 2)
 
             LIVE_RUNNING_RECORDS.append(row)
-            LIVE_RUNNING_RECORDS = LIVE_RUNNING_RECORDS[-2000:]
+            # 24 hours at 15s intervals = 5,760 rows. Set limit to 6000 to be safe.
+            LIVE_RUNNING_RECORDS = LIVE_RUNNING_RECORDS[-6000:]
 
         with open(RUNNING_FILE, "w") as f:
             json.dump(LIVE_RUNNING_RECORDS, f)
@@ -512,16 +513,35 @@ restart_recorder_job()
 
 def daily_cleanup():
     global LIVE_RUNNING_RECORDS
-    now = datetime.now(IST)
-    if not (0 <= now.hour < 2):
-        return
+    now_ist = datetime.now(IST)
+    
     with _lock:
+        if LIVE_RUNNING_RECORDS:
+            try:
+                # Convert the previous day's records to a DataFrame
+                df = pd.DataFrame(LIVE_RUNNING_RECORDS)
+                # The data belongs to yesterday
+                yesterday = (now_ist - timedelta(days=1)).strftime("%Y-%m-%d")
+                filename = f"CryptoNexus_Archive_{yesterday}.xlsx"
+                
+                os.makedirs("archives", exist_ok=True)
+                filepath = os.path.join("archives", filename)
+                
+                # Save as Excel file for the dashboard to download
+                df.to_excel(filepath, index=False, engine='openpyxl')
+                print(f"✅ Daily Excel archive saved: {filename}")
+            except Exception as e:
+                print(f"❌ Archive Error: {e}")
+
+        # Completely clear the live records for the new day
         LIVE_RUNNING_RECORDS = []
+        
     if os.path.exists(RUNNING_FILE):
         os.remove(RUNNING_FILE)
-    print(f"🧹 DAILY CLEANUP {now.strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"🧹 SYSTEM RESET FOR NEW DAY AT {now_ist.strftime('%Y-%m-%d %H:%M:%S')}")
 
-scheduler.add_job(daily_cleanup, "cron", hour=0, minute=1,
+# Schedule precisely at 00:00 (Midnight)
+scheduler.add_job(daily_cleanup, "cron", hour=0, minute=0,
                   id="crypto_cleanup", replace_existing=True,
                   max_instances=1, coalesce=True)
 
@@ -777,6 +797,19 @@ def api_debug_raw():
         })
     except Exception as e:
         return jsonify({"error": str(e)})
+    
+@app.route("/api/archives", methods=["GET"])
+def api_archives():
+    """Returns a list of all daily Excel archives available for download."""
+    if not os.path.exists("archives"):
+        return jsonify([])
+    files = sorted([f for f in os.listdir("archives") if f.endswith(".xlsx")], reverse=True)
+    return jsonify(files)
+
+@app.route("/api/download/archive/<path:filename>")
+def download_archive(filename):
+    """Allows the user to download a specific daily archive."""
+    return send_from_directory("archives", filename, as_attachment=True)
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -1024,9 +1057,11 @@ function renderTable() {
   });
 }
 
+// 1. Locate this function inside the <script> tags of ADMIN_TEMPLATE:
 async function fetchChain() {
   try {
-    const data = await (await fetch("/api/chain")).json();
+    // ADD THE '?t=' + Date.now() HERE TO BUST CACHE:
+    const data = await (await fetch("/api/chain?t=" + Date.now())).json();
     if (data.error || !data.chain || !data.chain.length) {
       showError(data.error || "No data returned from Delta Exchange");
       return;
@@ -1040,8 +1075,12 @@ async function fetchChain() {
   } catch(e) { showError(e.message); }
 }
 
+// 2. Also update this function right below it for accuracy:
 async function fetchUsers() {
-  try { document.getElementById("active-count").innerText = ((await (await fetch("/api/active-users")).json()).total)||0; } catch(e){}
+  try { 
+    // ADD THE '?t=' + Date.now() HERE AS WELL:
+    document.getElementById("active-count").innerText = ((await (await fetch("/api/active-users?t=" + Date.now())).json()).total)||0; 
+  } catch(e){}
 }
 
 function scheduleNext() { if(refreshId) clearTimeout(refreshId); refreshId = setTimeout(loop, intervalSec*1000); }
