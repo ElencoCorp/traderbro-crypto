@@ -165,9 +165,17 @@
 
   <div class="glass tbl-section">
     <div class="tbl-title">
-      <span>Historical Running Values</span>
+      <span> Running Values</span>
       <div style="display:flex; align-items:center; gap:12px;">
-        <button class="btn btn-teal" onclick="downloadExcel()">⬇ Excel</button>
+        
+        <!-- NEW ARCHIVE SELECTOR -->
+        <select id="archive-select" style="padding: 9px; border-radius: 10px; background: rgba(255, 255, 255, 0.04); color: white; border: 1px solid rgba(255, 255, 255, 0.08); outline: none; font-family: 'Plus Jakarta Sans', sans-serif;">
+          <option value="">Archived Dates...</option>
+        </select>
+        <button class="btn btn-blue" onclick="downloadArchive()">🗄️ Download Archive</button>
+
+        <!-- CURRENT DAY EXCEL -->
+        <button class="btn btn-teal" onclick="downloadExcel()">⬇ Live Excel</button>
         <span class="badge-live">● LIVE UPDATES</span>
       </div>
     </div>
@@ -184,7 +192,7 @@
           </tr>
         </thead>
         <tbody id="tbl-body">
-          <tr><td colspan="6" style="padding: 50px; color: var(--dim);">Fetching historical running values...</td></tr>
+          <tr><td colspan="6" style="padding: 50px; color: var(--dim);">Fetching  running values...</td></tr>
         </tbody>
       </table>
     </div>
@@ -411,6 +419,38 @@ window.addEventListener("load", async () => {
   await fetchData();
   preciseLoop();
 });
+
+// [ADD THIS JAVASCRIPT inside the <script> tags at the bottom of dashboard.html]
+
+async function loadArchives() {
+  try {
+    const files = await (await fetch("/api/archives")).json();
+    const sel = document.getElementById("archive-select");
+    files.forEach(f => {
+      const opt = document.createElement("option");
+      opt.value = f;
+      // Format filename to just show the Date
+      opt.innerText = f.replace("CryptoNexus_Archive_", "").replace(".xlsx", "");
+      sel.appendChild(opt);
+    });
+  } catch(e) { console.error("Failed to load archives", e); }
+}
+
+function downloadArchive() {
+  const sel = document.getElementById("archive-select");
+  if (!sel.value) return alert("Please select a date from the dropdown first.");
+  window.open("/api/download/archive/" + sel.value, "_blank");
+}
+
+// [FIND YOUR window.addEventListener("load") block AND ADD loadArchives() TO IT:]
+window.addEventListener("load", async () => {
+  initChart();
+  await loadArchives(); // <--- ADD THIS LINE
+  await fetchData();
+  preciseLoop();
+});
+
+
 </script>
 </body>
 </html>
